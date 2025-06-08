@@ -55,7 +55,7 @@ df_merged = df_merged.rename(columns={'01. Ano':'year',
                                        '02. Nome Região (Portugal)':'municipality',
                                        '03. Âmbito Geográfico':'region_type',
                                        '04. Filtro 1':'construction_type',
-                                       '05. Filtro 2':'dweling_type',
+                                       '05. Filtro 2':'dwelling_type',
                                        '09. Valor':'value_construction_type'})
 
 # Display the first few rows of the merged dataframe
