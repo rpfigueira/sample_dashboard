@@ -3,11 +3,18 @@ from dash import dcc
 from dash import html
 from dash.dependencies import Input, Output
 import plotly.express as px
+import json
 import pandas as pd
 
+
+# learn about components, layout and callbacks in Dash here: https://www.youtube.com/watch?v=hSPmj7mK6ng
 # Load the dataset
 df = pd.read_csv('data/portugal_municipalities.csv')
+print(df.head())  # Display the first few rows of the dataframe for debugging
 
+# Load GeoJSON file for municipalities
+with open('data/municip_pt.geojson') as f:
+    geojson = json.load(f)
 
 # Get unique values for dropdowns
 available_columns = ['construction_type', 'dwelling_type', 'type']
@@ -51,6 +58,43 @@ app.layout = html.Div([
  ], style={'width': '48%', 'display': 'inline-block', 'verticalAlign': 'top', 'marginLeft': '2%'})
  ])
 ])
+
+# Callback to update the map
+@app.callback(
+    Output('portugal-map', 'figure'),
+    [Input('data-column-dropdown', 'value')]
+)
+def update_map(selected_column):
+    """
+    Updates the choropleth map based on the selected data column.
+    """
+    value_col_to_sum = None
+    if selected_column == 'construction_type':
+        value_col_to_sum = 'value_construction_type'
+    elif selected_column == 'dwelling_type':
+        # 'dwelling_type' is from the same source as 'construction_type' and uses its value column
+        value_col_to_sum = 'value_construction_type'
+    elif selected_column == 'type': # This 'type' is from the dwelling dataset
+        value_col_to_sum = 'value_dwelling_type'
+
+    if value_col_to_sum not in df.columns:
+        return px.choropleth(title=f"Value column '{value_col_to_sum}' not found.")
+
+    # Aggregate data by municipality, summing the values across all years
+    df_map = df.groupby('municipality')[value_col_to_sum].sum().reset_index()
+
+    fig = px.choropleth(
+        df_map,
+        geojson=geojson,
+        locations='municipality',
+        featureidkey="properties.Municipio",  # Assumes the GeoJSON has a 'name' property for municipalities
+        color=value_col_to_sum,
+        projection="mercator",
+        title=f"Total {selected_column.replace('_', ' ').title()} by Municipality"
+    )
+    fig.update_geos(fitbounds="locations", visible=False)
+    fig.update_layout(margin={"r":0,"t":50,"l":0,"b":0})
+    return fig
 
 # Callback to update the first bar chart
 @app.callback(
