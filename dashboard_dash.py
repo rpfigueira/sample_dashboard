@@ -10,14 +10,24 @@ import pandas as pd
 # learn about components, layout and callbacks in Dash here: https://www.youtube.com/watch?v=hSPmj7mK6ng
 # Load the dataset
 df = pd.read_csv('data/portugal_municipalities.csv')
-print(df.head())  # Display the first few rows of the dataframe for debugging
 
 # Load GeoJSON file for municipalities
-with open('data/municip_pt.geojson') as f:
+with open('data/Portugal_Municipalities.geojson') as f:
     geojson = json.load(f)
 
 # Get unique values for dropdowns
 available_columns = ['construction_type', 'dwelling_type', 'type']
+
+def get_value_col(selected_category_col):
+    """Maps a category column to its corresponding value column."""
+    if selected_category_col in ['construction_type', 'dwelling_type']:
+        # These categories are from the construction dataset
+        return 'value_construction_type'
+    elif selected_category_col == 'type':
+        # This category is from the dwelling dataset
+        return 'value_dwelling_type'
+    return None
+
 
 # Initialize the Dash app
 app = dash.Dash(__name__)
@@ -68,31 +78,30 @@ def update_map(selected_column):
     """
     Updates the choropleth map based on the selected data column.
     """
-    value_col_to_sum = None
-    if selected_column == 'construction_type':
-        value_col_to_sum = 'value_construction_type'
-    elif selected_column == 'dwelling_type':
-        # 'dwelling_type' is from the same source as 'construction_type' and uses its value column
-        value_col_to_sum = 'value_construction_type'
-    elif selected_column == 'type': # This 'type' is from the dwelling dataset
-        value_col_to_sum = 'value_dwelling_type'
-
-    if value_col_to_sum not in df.columns:
+    value_col_to_sum = get_value_col(selected_column)
+    if not value_col_to_sum or value_col_to_sum not in df.columns:
         return px.choropleth(title=f"Value column '{value_col_to_sum}' not found.")
-
+ 
     # Aggregate data by municipality, summing the values across all years
-    df_map = df.groupby('municipality')[value_col_to_sum].sum().reset_index()
+    df2 = df.copy()
+    df2['municipality_upper'] = df2['municipality'].str.upper()
+
+
+    df_map = df2.groupby('municipality_upper')[value_col_to_sum].sum().reset_index()
+
+    print(df_map.head())
 
     fig = px.choropleth(
         df_map,
         geojson=geojson,
-        locations='municipality',
-        featureidkey="properties.Municipio",  # Assumes the GeoJSON has a 'name' property for municipalities
+        locations='municipality_upper',
+        featureidkey="properties.Concelho",  # Assumes the GeoJSON has a 'name' property for municipalities
         color=value_col_to_sum,
         projection="mercator",
+        scope="europe",
         title=f"Total {selected_column.replace('_', ' ').title()} by Municipality"
     )
-    fig.update_geos(fitbounds="locations", visible=False)
+    fig.update_geos(fitbounds="locations", visible=True)
     fig.update_layout(margin={"r":0,"t":50,"l":0,"b":0})
     return fig
 
@@ -106,18 +115,9 @@ def update_bar_chart_1(selected_column):
     Updates the bar chart based on the selected data column from the dropdown.
     The chart displays values per year, categorized by the selected column.
     """
-    value_col_to_sum = None
-    if selected_column == 'construction_type':
-        value_col_to_sum = 'value_construction_type'
-    elif selected_column == 'dwelling_type':
-        # 'dwelling_type' is from the same source as 'construction_type' and uses its value column
-        value_col_to_sum = 'value_construction_type'
-    elif selected_column == 'type': # This 'type' is from the dwelling dataset
-        value_col_to_sum = 'value_dwelling_type'
-    else:
-        # Fallback for an unexpected column, though dropdown is not clearable and has fixed options
+    value_col_to_sum = get_value_col(selected_column)
+    if not value_col_to_sum:
         return px.bar(title=f"Invalid column selected: {selected_column}")
-
     if value_col_to_sum not in df.columns:
         return px.bar(title=f"Required value column '{value_col_to_sum}' not found.")
 

@@ -10,7 +10,7 @@ SELECT ?municipality ?municipalityLabel ?district ?districtLabel WHERE {
                 wdt:P131 ?district.   # located in the administrative entity (district)
   ?district wdt:P31 wd:Q3032141
 
-  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "pt". }
 }
 ORDER BY ?districtLabel ?municipalityLabel
 """
