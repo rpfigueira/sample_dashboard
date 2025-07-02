@@ -108,11 +108,13 @@ def update_map(selected_column):
 # Callback to update the first bar chart
 @app.callback(
     Output('bar-chart-1', 'figure'),
-    [Input('data-column-dropdown', 'value')]
+    [Input('data-column-dropdown', 'value'),
+     Input('portugal-map', 'clickData')]
 )
-def update_bar_chart_1(selected_column):
+def update_bar_chart_1(selected_column, clickData):
     """
     Updates the bar chart based on the selected data column from the dropdown.
+    If a municipality is clicked on the map, the chart is filtered for that municipality.
     The chart displays values per year, categorized by the selected column.
     """
     value_col_to_sum = get_value_col(selected_column)
@@ -123,6 +125,16 @@ def update_bar_chart_1(selected_column):
 
     # Prepare data for the chart
     dff = df.copy()
+    # Create an uppercase municipality column for consistent matching with map data
+    dff['municipality_upper'] = dff['municipality'].str.upper()
+
+    # Filter data based on map click
+    title_location = "All Municipalities"
+    if clickData:
+        clicked_municipality = clickData['points'][0]['location']
+        dff = dff[dff['municipality_upper'] == clicked_municipality]
+        title_location = clicked_municipality.title()
+
     # Ensure the value column is numeric, converting errors to NaN
     dff[value_col_to_sum] = pd.to_numeric(dff[value_col_to_sum], errors='coerce')
 
@@ -130,13 +142,13 @@ def update_bar_chart_1(selected_column):
     dff_chart = dff.dropna(subset=['year', selected_column, value_col_to_sum])
 
     if dff_chart.empty:
-        return px.bar(title=f"No data to display for {selected_column} after filtering.")
+        return px.bar(title=f"No data to display for {selected_column} in {title_location} after filtering.")
 
     # Group by year and the selected column's categories, then sum the values
     grouped_data = dff_chart.groupby(['year', selected_column], as_index=False)[value_col_to_sum].sum()
 
     fig = px.bar(grouped_data, x='year', y=value_col_to_sum, color=selected_column,
-                 title=f'Value of {selected_column} per Year', barmode='group')
+                 title=f'Value of {selected_column.replace("_", " ").title()} per Year in {title_location}', barmode='group')
     fig.update_xaxes(type='category') # Treat 'year' as a categorical axis
     return fig
 
